@@ -9,6 +9,7 @@ import { InventoryModule } from './inventory/inventory.module';
 import { PricingModule } from './pricing/pricing.module';
 import { AuditLogModule } from './audit-log/audit-log.module';
 import { ProductImageModule } from './product-image/product-image.module';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { ProductImageModule } from './product-image/product-image.module';
     PricingModule,
     AuditLogModule,
     ProductImageModule,
+    AuthModule,
   ],
   controllers: [UserController],
   providers: [],
