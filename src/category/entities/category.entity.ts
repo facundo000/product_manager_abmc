@@ -1,4 +1,5 @@
-import { Column, Entity, PrimaryGeneratedColumn } from "typeorm";
+import { Column, Entity, JoinColumn, ManyToMany, ManyToOne, OneToMany, PrimaryGeneratedColumn } from "typeorm";
+import { Product } from "../../product/entities/product.entity";
 
 @Entity('categories')
 export class Category {
@@ -18,15 +19,15 @@ export class Category {
     sort_order: number;
 
     // Self-referencing relation for hierarchical categories
-    // @ManyToOne(() => Category, (category) => category.children, {
-    //   nullable: true,
-    // })
-    // @JoinColumn({ name: 'parent_id' })
-    // parent: Category;
+    @ManyToOne(() => Category, (category) => category.children, {
+      nullable: true,
+    })
+    @JoinColumn({ name: 'parent_id' })
+    parent: Category;
   
-    // @OneToMany(() => Category, (category) => category.parent)
-    // children: Category[];
+    @OneToMany(() => Category, (category) => category.parent)
+    children: Category[];
   
-    // @ManyToMany(() => Product, (product) => product.categories)
-    // products: Product[];
+    @ManyToMany(() => Product, (product) => product.categories)
+    products: Product[];
 }

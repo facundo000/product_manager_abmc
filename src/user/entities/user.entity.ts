@@ -1,5 +1,7 @@
-import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn } from "typeorm";
+import { Column, CreateDateColumn, Entity, OneToMany, PrimaryGeneratedColumn } from "typeorm";
 import { UserRole } from "../interfaces/user-role";
+import { Product } from "../../product/entities/product.entity";
+import { Pricing } from "../../pricing/entities/pricing.entity";
 
 @Entity('users')
 export class User {
@@ -33,4 +35,14 @@ export class User {
   
     @Column({ type: 'timestamp', nullable: true })
     last_login: Date;
+
+    // Relations
+    @OneToMany(() => Product, (product) => product.created_by_user)
+    created_products: Product[];
+
+    @OneToMany(() => Product, (product) => product.updated_by_user)
+    updated_products: Product[];
+
+    @OneToMany(() => Pricing, (pricing) => pricing.created_by_user)
+    pricing: Pricing[];
 }

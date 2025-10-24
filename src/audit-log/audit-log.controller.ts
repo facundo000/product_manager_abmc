@@ -1,34 +1,45 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Param, Query } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { AuditLogService } from './audit-log.service';
-import { CreateAuditLogDto } from './dto/create-audit-log.dto';
-import { UpdateAuditLogDto } from './dto/update-audit-log.dto';
 
+@ApiTags('audit-log')
 @Controller('audit-log')
 export class AuditLogController {
   constructor(private readonly auditLogService: AuditLogService) {}
 
-  @Post()
-  create(@Body() createAuditLogDto: CreateAuditLogDto) {
-    return this.auditLogService.create(createAuditLogDto);
+  @Get()
+  @ApiOperation({ summary: 'Get all audit logs with optional filters' })
+  @ApiQuery({ name: 'tableName', required: false, description: 'Filter by table name' })
+  @ApiQuery({ name: 'recordId', required: false, type: Number, description: 'Filter by record ID' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Limit results (default: 100)' })
+  @ApiResponse({ status: 200, description: 'Returns list of audit logs' })
+  async findAll(
+    @Query('tableName') tableName?: string,
+    @Query('recordId') recordId?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return await this.auditLogService.findAll(
+      tableName,
+      recordId ? parseInt(recordId) : undefined,
+      limit ? parseInt(limit) : 100,
+    );
   }
 
-  @Get()
-  findAll() {
-    return this.auditLogService.findAll();
+  @Get('record/:tableName/:recordId')
+  @ApiOperation({ summary: 'Get audit history for a specific record' })
+  @ApiResponse({ status: 200, description: 'Returns audit history' })
+  async findByRecord(
+    @Param('tableName') tableName: string,
+    @Param('recordId') recordId: string,
+  ) {
+    return await this.auditLogService.findByRecord(tableName, parseInt(recordId));
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.auditLogService.findOne(+id);
-  }
-
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateAuditLogDto: UpdateAuditLogDto) {
-    return this.auditLogService.update(+id, updateAuditLogDto);
-  }
-
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.auditLogService.remove(+id);
+  @ApiOperation({ summary: 'Get audit log by ID' })
+  @ApiResponse({ status: 200, description: 'Audit log found' })
+  @ApiResponse({ status: 404, description: 'Audit log not found' })
+  async findOne(@Param('id') id: string) {
+    return await this.auditLogService.findOne(parseInt(id));
   }
 }

@@ -1,6 +1,11 @@
-import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
+import { Column, CreateDateColumn, Entity, Index, JoinColumn, JoinTable, ManyToMany, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 import { ProductStatus } from "../interfaces/product-status";
 import { UnitType } from "../interfaces/unit-type";
+import { User } from "../../user/entities/user.entity";
+import { Category } from "../../category/entities/category.entity";
+import { Inventory } from "../../inventory/entities/inventory.entity";
+import { Pricing } from "../../pricing/entities/pricing.entity";
+import { ProductImage } from "../../product-image/entities/product-image.entity";
 
 @Entity('products')
 @Index(['barcode'])
@@ -63,28 +68,28 @@ export class Product {
     updated_by: string;
 
     // Relations
-    // @ManyToOne(() => User, (user) => user.created_products)
-    // @JoinColumn({ name: 'created_by' })
-    // created_by_user: User;
+    @ManyToOne(() => User, (user) => user.created_products)
+    @JoinColumn({ name: 'created_by' })
+    created_by_user: User;
   
-    // @ManyToOne(() => User, (user) => user.updated_products)
-    // @JoinColumn({ name: 'updated_by' })
-    // updated_by_user: User;
+    @ManyToOne(() => User, (user) => user.updated_products)
+    @JoinColumn({ name: 'updated_by' })
+    updated_by_user: User;
   
-    // @ManyToMany(() => Category, (category) => category.products)
-    // @JoinTable({
-    //   name: 'product_categories',
-    //   joinColumn: { name: 'product_id', referencedColumnName: 'id' },
-    //   inverseJoinColumn: { name: 'category_id', referencedColumnName: 'id' },
-    // })
-    // categories: Category[];
+    @ManyToMany(() => Category, (category) => category.products)
+    @JoinTable({
+      name: 'product_categories',
+      joinColumn: { name: 'product_id', referencedColumnName: 'id' },
+      inverseJoinColumn: { name: 'category_id', referencedColumnName: 'id' },
+    })
+    categories: Category[];
   
-    // @OneToMany(() => Inventory, (inventory) => inventory.product)
-    // inventory: Inventory[];
+    @OneToMany(() => Inventory, (inventory) => inventory.product)
+    inventory: Inventory[];
   
-    // @OneToMany(() => Pricing, (pricing) => pricing.product)
-    // pricing: Pricing[];
+    @OneToMany(() => Pricing, (pricing) => pricing.product)
+    pricing: Pricing[];
   
-    // @OneToMany(() => ProductImage, (image) => image.product)
-    // images: ProductImage[];
+    @OneToMany(() => ProductImage, (image) => image.product)
+    images: ProductImage[];
 }

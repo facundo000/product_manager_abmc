@@ -1,26 +1,70 @@
 import { Injectable } from '@nestjs/common';
-import { CreateAuditLogDto } from './dto/create-audit-log.dto';
-import { UpdateAuditLogDto } from './dto/update-audit-log.dto';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { AuditLog, AuditAction } from './entities/audit-log.entity';
+
+export interface CreateAuditLogParams {
+  tableName: string;
+  recordId: number;
+  action: AuditAction;
+  oldValues?: Record<string, any>;
+  newValues?: Record<string, any>;
+  userId?: string;
+  ipAddress?: string;
+  userAgent?: string;
+}
 
 @Injectable()
 export class AuditLogService {
-  create(createAuditLogDto: CreateAuditLogDto) {
-    return 'This action adds a new auditLog';
+  constructor(
+    @InjectRepository(AuditLog)
+    private readonly auditLogRepository: Repository<AuditLog>,
+  ) {}
+
+  async createAuditLog(params: CreateAuditLogParams): Promise<AuditLog> {
+    const auditLog = this.auditLogRepository.create({
+      table_name: params.tableName,
+      record_id: params.recordId,
+      action: params.action,
+      old_values: params.oldValues,
+      new_values: params.newValues,
+      user_id: params.userId,
+      ip_address: params.ipAddress,
+      user_agent: params.userAgent,
+    });
+
+    return await this.auditLogRepository.save(auditLog);
   }
 
-  findAll() {
-    return `This action returns all auditLog`;
+  async findAll(
+    tableName?: string,
+    recordId?: number,
+    limit: number = 100,
+  ): Promise<AuditLog[]> {
+    const query = this.auditLogRepository.createQueryBuilder('audit_log');
+
+    if (tableName) {
+      query.andWhere('audit_log.table_name = :tableName', { tableName });
+    }
+
+    if (recordId) {
+      query.andWhere('audit_log.record_id = :recordId', { recordId });
+    }
+
+    return await query
+      .orderBy('audit_log.created_at', 'DESC')
+      .limit(limit)
+      .getMany();
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} auditLog`;
+  async findByRecord(tableName: string, recordId: number): Promise<AuditLog[]> {
+    return await this.auditLogRepository.find({
+      where: { table_name: tableName, record_id: recordId },
+      order: { created_at: 'DESC' },
+    });
   }
 
-  update(id: number, updateAuditLogDto: UpdateAuditLogDto) {
-    return `This action updates a #${id} auditLog`;
-  }
-
-  remove(id: number) {
-    return `This action removes a #${id} auditLog`;
+  async findOne(id: number): Promise<AuditLog | null> {
+    return await this.auditLogRepository.findOne({ where: { id } });
   }
 }

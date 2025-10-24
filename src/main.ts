@@ -24,10 +24,11 @@ async function bootstrap() {
     })
   )
   const config = new DocumentBuilder()
-    .setTitle('Product Manager')
-    .setDescription(`API created for rapid implementation of protected routes and a dashboard where each user's record will be kept.`)
+    .setTitle('Product Manager API')
+    .setDescription(`Complete Product Management System with CRUD operations, barcode scanning, and automatic audit logging`)
     .setVersion('1.0')
-    .addTag('')
+    .addTag('products', 'Product management endpoints')
+    .addTag('audit-log', 'Audit log endpoints')
     .build();
   const documentFactory = () => SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('docs', app, documentFactory);
