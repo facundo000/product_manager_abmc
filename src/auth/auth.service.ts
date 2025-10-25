@@ -1,26 +1,61 @@
-import { Injectable } from '@nestjs/common';
-import { CreateAuthDto } from './dto/create-auth.dto';
-import { UpdateAuthDto } from './dto/update-auth.dto';
+import { BadRequestException, Injectable, InternalServerErrorException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { JwtService } from '@nestjs/jwt';
+import * as bcrypt from 'bcrypt';
+import { User } from '../user/entities/user.entity';
+import { RegisterDto } from './dto/register.dto';
+import { UserRole } from '../user/interfaces/user-role';
 
 @Injectable()
 export class AuthService {
-  create(createAuthDto: CreateAuthDto) {
-    return 'This action adds a new auth';
-  }
+  constructor(
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
+    private readonly jwtService: JwtService,
+  ) {}
 
-  findAll() {
-    return `This action returns all auth`;
-  }
+  async register(registerDto: RegisterDto) {
+    try {
+      const { password, role, ...userData } = registerDto;
+      
+      const existingUser = await this.userRepository.findOne({
+        where: [
+          { username: userData.username },
+          { email: userData.email },
+        ],
+      });
 
-  findOne(id: number) {
-    return `This action returns a #${id} auth`;
-  }
+      if (existingUser) {
+        throw new BadRequestException('El usuario o email ya existe');
+      }
 
-  update(id: number, updateAuthDto: UpdateAuthDto) {
-    return `This action updates a #${id} auth`;
-  }
 
-  remove(id: number) {
-    return `This action removes a #${id} auth`;
+      const password_hash = await bcrypt.hash(password, 10);
+
+
+      const user = this.userRepository.create({
+        ...userData,
+        password_hash,
+        role: role || UserRole.VIEWER,
+      });
+
+      await this.userRepository.save(user);
+
+      const payload = { id: user.id, username: user.username };
+      const token = this.jwtService.sign(payload);
+
+      const { password_hash: _, ...userWithoutPassword } = user;
+
+      return {
+        user: userWithoutPassword,
+        token,
+      };
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Error to register user');
+    }
   }
 }
