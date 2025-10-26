@@ -1,11 +1,13 @@
-import { BadRequestException, Injectable, InternalServerErrorException } from '@nestjs/common';
+import { BadRequestException, Injectable, InternalServerErrorException, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { User } from '../user/entities/user.entity';
 import { RegisterDto } from './dto/register.dto';
+import { LoginDto } from './dto/login.dto';
 import { UserRole } from '../user/interfaces/user-role';
+import { JwtPayload } from './interface/jwt-payload.interface';
 
 @Injectable()
 export class AuthService {
@@ -57,5 +59,49 @@ export class AuthService {
       }
       throw new InternalServerErrorException('Error to register user');
     }
+  }
+
+  async login(loginDto: LoginDto){
+      const {email, password } = loginDto;
+      const user = await this.userRepository.findOne({
+        where: {email},
+        select: {email: true, password_hash: true, id:true}
+      });
+
+      if(!user){
+        throw new UnauthorizedException('Invalid credentials - Username')
+      }
+
+      if(!bcrypt.compareSync(password, user.password_hash)){
+        throw new UnauthorizedException('Invalid credentials - password')
+      }
+
+       return {
+        user: user,
+        token: this.getJwtToken({ id: user.id, username: user.username })
+      }
+    }
+
+  private getJwtToken(payload: JwtPayload){
+    const token = this.jwtService.sign(payload);
+    return token;
+  }
+
+  async checkAuthStatus(user: User | null){
+    // Si no hay usuario autenticado, devolver rol "user"
+    if (!user) {
+      return {
+        role: 'user',
+        authenticated: false
+      };
+    }
+
+    // Si hay usuario autenticado, devolver sus datos y un nuevo token
+    const { password_hash, ...userWithoutPassword } = user;
+    return {
+      ...userWithoutPassword,
+      authenticated: true,
+      token: this.getJwtToken({ id: user.id, username: user.username })
+    };
   }
 }
