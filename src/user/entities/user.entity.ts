@@ -1,7 +1,7 @@
 import { Column, CreateDateColumn, Entity, OneToMany, PrimaryGeneratedColumn } from "typeorm";
-import { UserRole } from "../interfaces/user-role";
 import { Product } from "../../product/entities/product.entity";
 import { Pricing } from "../../pricing/entities/pricing.entity";
+import { ValidRoles } from "src/auth/interface/valid-roles";
 
 @Entity('users')
 export class User {
@@ -22,10 +22,10 @@ export class User {
   
     @Column({
       type: 'enum',
-      enum: UserRole,
-      default: UserRole.VIEWER,
+      enum: ValidRoles,
+      default: ValidRoles.VIEWER,
     })
-    role: UserRole;
+    role: ValidRoles;
   
     @Column({ default: true })
     is_active: boolean;

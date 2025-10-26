@@ -8,6 +8,7 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { UserRole } from '../user/interfaces/user-role';
 import { JwtPayload } from './interface/jwt-payload.interface';
+import { ValidRoles } from './interface/valid-roles';
 
 @Injectable()
 export class AuthService {
@@ -39,7 +40,7 @@ export class AuthService {
       const user = this.userRepository.create({
         ...userData,
         password_hash,
-        role: role || UserRole.VIEWER,
+        role:ValidRoles.VIEWER, 
       });
 
       await this.userRepository.save(user);
