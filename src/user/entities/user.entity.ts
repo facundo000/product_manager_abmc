@@ -1,7 +1,7 @@
 import { Column, CreateDateColumn, Entity, OneToMany, PrimaryGeneratedColumn } from "typeorm";
 import { Product } from "../../product/entities/product.entity";
 import { Pricing } from "../../pricing/entities/pricing.entity";
-import { ValidRoles } from "src/auth/interface/valid-roles";
+import { ValidRoles } from "../../auth/interface/valid-roles";
 
 @Entity('users')
 export class User {
