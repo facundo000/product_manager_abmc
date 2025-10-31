@@ -39,7 +39,7 @@ export class ProductService {
     // Create audit log
     await this.auditLogService.createAuditLog({
       tableName: 'products',
-      recordId: parseInt(savedProduct.id),
+      recordId: savedProduct.id,
       action: AuditAction.CREATE,
       newValues: savedProduct,
       userId: createProductDto.created_by,
@@ -145,7 +145,7 @@ export class ProductService {
     // Create audit log
     await this.auditLogService.createAuditLog({
       tableName: 'products',
-      recordId: parseInt(id),
+      recordId: id,
       action: AuditAction.UPDATE,
       oldValues,
       newValues: updatedProduct,
@@ -161,7 +161,7 @@ export class ProductService {
     // Create audit log before deletion
     await this.auditLogService.createAuditLog({
       tableName: 'products',
-      recordId: parseInt(id),
+      recordId: id,
       action: AuditAction.DELETE,
       oldValues: product,
       userId,
@@ -171,6 +171,6 @@ export class ProductService {
   }
 
   async getAuditHistory(id: string): Promise<any[]> {
-    return await this.auditLogService.findByRecord('products', parseInt(id));
+    return await this.auditLogService.findByRecord('products', id);
   }
 }

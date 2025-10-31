@@ -15,8 +15,8 @@ export class AuditLog {
   @Column({ length: 100 })
   table_name: string;
 
-  @Column({ type: 'int' })
-  record_id: number;
+  @Column({ type: 'varchar', length: 100 })
+  record_id: string;
 
   @Column({
     type: 'enum',

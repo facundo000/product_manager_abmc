@@ -93,16 +93,17 @@ export class AuditInterceptor implements NestInterceptor {
     return resourceIndex !== -1 ? urlParts[resourceIndex] : null;
   }
 
-  private extractRecordId(urlParts: string[], data: any): number | null {
+  private extractRecordId(urlParts: string[], data: any): string | null {
     // Try to extract ID from URL
     const idFromUrl = urlParts[urlParts.length - 1];
-    if (idFromUrl && !isNaN(parseInt(idFromUrl))) {
-      return parseInt(idFromUrl);
+    // Check if it looks like a UUID or valid ID (not a route name)
+    if (idFromUrl && idFromUrl.length > 0 && !['audit-history', 'barcode', 'sku'].includes(idFromUrl)) {
+      return idFromUrl;
     }
 
     // Try to extract ID from response data
     if (data?.id) {
-      return parseInt(data.id);
+      return data.id;
     }
 
     return null;

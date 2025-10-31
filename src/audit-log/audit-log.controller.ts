@@ -20,7 +20,7 @@ export class AuditLogController {
   ) {
     return await this.auditLogService.findAll(
       tableName,
-      recordId ? parseInt(recordId) : undefined,
+      recordId ? recordId: undefined,
       limit ? parseInt(limit) : 100,
     );
   }
@@ -32,7 +32,7 @@ export class AuditLogController {
     @Param('tableName') tableName: string,
     @Param('recordId') recordId: string,
   ) {
-    return await this.auditLogService.findByRecord(tableName, parseInt(recordId));
+    return await this.auditLogService.findByRecord(tableName, recordId);
   }
 
   @Get(':id')

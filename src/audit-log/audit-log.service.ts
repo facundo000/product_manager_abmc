@@ -5,7 +5,7 @@ import { AuditLog, AuditAction } from './entities/audit-log.entity';
 
 export interface CreateAuditLogParams {
   tableName: string;
-  recordId: number;
+  recordId: string;
   action: AuditAction;
   oldValues?: Record<string, any>;
   newValues?: Record<string, any>;
@@ -38,7 +38,7 @@ export class AuditLogService {
 
   async findAll(
     tableName?: string,
-    recordId?: number,
+    recordId?: string,
     limit: number = 100,
   ): Promise<AuditLog[]> {
     const query = this.auditLogRepository.createQueryBuilder('audit_log');
@@ -57,7 +57,7 @@ export class AuditLogService {
       .getMany();
   }
 
-  async findByRecord(tableName: string, recordId: number): Promise<AuditLog[]> {
+  async findByRecord(tableName: string, recordId: string): Promise<AuditLog[]> {
     return await this.auditLogRepository.find({
       where: { table_name: tableName, record_id: recordId },
       order: { created_at: 'DESC' },
