@@ -4,10 +4,12 @@ import {
   Entity,
   JoinColumn,
   ManyToOne,
+  OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
 import { Product } from '../../product/entities/product.entity';
+import { InventoryMovement } from './inventory-movement.entity';
 
 @Entity('inventory')
 export class Inventory {
@@ -38,4 +40,7 @@ export class Inventory {
   })
   @JoinColumn({ name: 'product_id' })
   product: Product;
+
+  @OneToMany(() => InventoryMovement, (movement) => movement.inventory)
+  movements: InventoryMovement[];
 }

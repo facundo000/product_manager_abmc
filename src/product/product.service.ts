@@ -6,12 +6,15 @@ import { UpdateProductDto } from './dto/update-product.dto';
 import { Product } from './entities/product.entity';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { AuditAction } from '../audit-log/entities/audit-log.entity';
+import { Inventory } from '../inventory/entities/inventory.entity';
 
 @Injectable()
 export class ProductService {
   constructor(
     @InjectRepository(Product)
     private readonly productRepository: Repository<Product>,
+    @InjectRepository(Inventory)
+    private readonly inventoryRepository: Repository<Inventory>,
     private readonly auditLogService: AuditLogService,
   ) {}
 
@@ -157,6 +160,12 @@ export class ProductService {
 
   async remove(id: string, userId: string): Promise<void> {
     const product = await this.findOne(id);
+
+    // Prevent deletion if inventory has stock > 0
+    const inventory = await this.inventoryRepository.findOne({ where: { product_id: id } });
+    if (inventory && (inventory.quantity ?? 0) > 0) {
+      throw new BadRequestException('Cannot delete product with stock greater than 0');
+    }
 
     // Create audit log before deletion
     await this.auditLogService.createAuditLog({

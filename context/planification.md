@@ -74,7 +74,7 @@ DELETE /categories/:id           (Admin)
 POST   /inventory                (Admin/Employee)
 GET    /inventory                (Admin/Employee/Viewer)
 GET    /inventory/:id            (Admin/Employee/Viewer)
-PUT    /inventory/:id            (Admin/Employee)
+PATCH    /inventory/:id            (Admin/Employee)
 GET    /inventory/low-stock      (Admin/Employee/Viewer)
 POST   /inventory/:id/adjust     (Admin/Employee)
 ```
@@ -101,7 +101,7 @@ POST   /inventory/:id/adjust     (Admin/Employee)
 POST   /pricing                  (Admin/Employee)
 GET    /pricing/product/:id      (Todos)
 GET    /pricing/:id/history      (Admin/Employee)
-PUT    /pricing/:id              (Admin/Employee)
+PATCH    /pricing/:id              (Admin/Employee)
 ```
 
 ### 1.4 Módulo de Users (Prioridad Media)
@@ -119,9 +119,9 @@ PUT    /pricing/:id              (Admin/Employee)
 POST   /users                    (Admin)
 GET    /users                    (Admin)
 GET    /users/:id                (Admin/Self)
-PUT    /users/:id                (Admin/Self)
+PATCH    /users/:id                (Admin/Self)
 DELETE /users/:id                (Admin)
-PUT    /users/:id/change-password (Self)
+PATCH    /users/:id/change-password (Self)
 ```
 
 ### ✅ Criterios de Aceptación Fase 1:
@@ -149,7 +149,7 @@ PUT    /users/:id/change-password (Self)
 | POST /products            |   ✓   |    ✓     |   ✗    |    ✗    |
 | GET /products             |   ✓   |    ✓     |   ✓    |    ✗    |
 | GET /products/barcode/:id |   ✓   |    ✓     |   ✓    |    ✓    |
-| PUT /products/:id         |   ✓   |    ✓     |   ✗    |    ✗    |
+| PATCH /products/:id         |   ✓   |    ✓     |   ✗    |    ✗    |
 | DELETE /products/:id      |   ✓   |    ✗     |   ✗    |    ✗    |
 | POST /categories          |   ✓   |    ✓     |   ✗    |    ✗    |
 | GET /categories           |   ✓   |    ✓     |   ✓    |    ✓    |

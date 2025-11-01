@@ -39,7 +39,7 @@ export class CategoryController {
   @ApiResponse({ status: 404, description: 'Parent category not found' })
   @ApiResponse({ status: 409, description: 'Category with same name already exists at this level' })
   @ApiBearerAuth()
-  @Auth(ValidRoles.ADMIN)
+  @Auth(ValidRoles.ADMIN, ValidRoles.EMPLOYEE)
   async create(
     @Body() createCategoryDto: CreateCategoryDto,
     @GetUser() user: User,
