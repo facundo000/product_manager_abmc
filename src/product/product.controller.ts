@@ -16,6 +16,10 @@ import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { ProductService } from './product.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
+import { ValidRoles } from 'src/auth/interface/valid-roles';
+import { Auth } from 'src/auth/decorators/auth.decorator';
+import { GetUser } from 'src/auth/decorators/get-user.decorator';
+import { User } from 'src/user/entities/user.entity';
 
 @ApiTags('products')
 @Controller('products')
@@ -27,8 +31,12 @@ export class ProductController {
   @ApiOperation({ summary: 'Create a new product' })
   @ApiResponse({ status: 201, description: 'Product created successfully' })
   @ApiResponse({ status: 409, description: 'Product with SKU or barcode already exists' })
-  async create(@Body() createProductDto: CreateProductDto) {
-    return await this.productService.create(createProductDto);
+  @Auth(ValidRoles.ADMIN, ValidRoles.EMPLOYEE)
+  async create(
+    @Body() createProductDto: CreateProductDto, 
+    @GetUser() user: User
+  ) {
+    return await this.productService.create(createProductDto, user.id);
   }
 
   @Get()
@@ -88,8 +96,13 @@ export class ProductController {
   @ApiResponse({ status: 200, description: 'Product updated successfully' })
   @ApiResponse({ status: 404, description: 'Product not found' })
   @ApiResponse({ status: 409, description: 'Product with SKU or barcode already exists' })
-  async update(@Param('id') id: string, @Body() updateProductDto: UpdateProductDto) {
-    return await this.productService.update(id, updateProductDto);
+  @Auth(ValidRoles.ADMIN, ValidRoles.EMPLOYEE)
+  async update(
+    @Param('id') id: string, 
+    @Body() updateProductDto: UpdateProductDto,
+    @GetUser() user: User
+  ) {
+    return await this.productService.update(id, updateProductDto, user.id);
   }
 
   @Delete(':id')

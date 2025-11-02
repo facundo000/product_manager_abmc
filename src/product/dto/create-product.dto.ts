@@ -66,8 +66,4 @@ export class CreateProductDto {
   @MaxLength(100)
   supplier_code?: string;
 
-  @ApiProperty({ description: 'User ID who creates the product' })
-  @IsString()
-  @IsNotEmpty()
-  created_by: string;
 }

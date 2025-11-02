@@ -18,7 +18,7 @@ export class ProductService {
     private readonly auditLogService: AuditLogService,
   ) {}
 
-  async create(createProductDto: CreateProductDto): Promise<Product> {
+  async create(createProductDto: CreateProductDto, userId: string): Promise<Product> {
     // Check for duplicate SKU or barcode
     const existingProduct = await this.productRepository.findOne({
       where: [
@@ -36,7 +36,10 @@ export class ProductService {
       }
     }
 
-    const product = this.productRepository.create(createProductDto);
+    const product = this.productRepository.create({
+      ...createProductDto,
+      created_by: userId
+    });
     const savedProduct = await this.productRepository.save(product);
 
     // Create audit log
@@ -45,7 +48,7 @@ export class ProductService {
       recordId: savedProduct.id,
       action: AuditAction.CREATE,
       newValues: savedProduct,
-      userId: createProductDto.created_by,
+      userId: userId,
     });
 
     return savedProduct;
@@ -117,7 +120,7 @@ export class ProductService {
     return product;
   }
 
-  async update(id: string, updateProductDto: UpdateProductDto): Promise<Product> {
+  async update(id: string, updateProductDto: UpdateProductDto, userId: string): Promise<Product> {
     const product = await this.findOne(id);
 
     // Check for duplicate SKU or barcode if they are being updated
@@ -138,12 +141,12 @@ export class ProductService {
         }
       }
     }
-
     const oldValues = { ...product };
 
     // Update product
     Object.assign(product, updateProductDto);
-    const updatedProduct = await this.productRepository.save(product);
+    product.updated_by = userId; // Asignar directamente a la entidad
+    const updatedProduct = await this.productRepository.save(product); // Guardar la entidad modificada
 
     // Create audit log
     await this.auditLogService.createAuditLog({
@@ -152,7 +155,7 @@ export class ProductService {
       action: AuditAction.UPDATE,
       oldValues,
       newValues: updatedProduct,
-      userId: updateProductDto.updated_by,
+      userId: userId,
     });
 
     return updatedProduct;
