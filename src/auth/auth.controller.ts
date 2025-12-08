@@ -126,7 +126,7 @@ export class AuthController {
   ) {
     return {
       ok: true,
-      message: 'en privado',
+      message: 'Acceso solo para administradores',
       user,
       username,
       rawHeaders,

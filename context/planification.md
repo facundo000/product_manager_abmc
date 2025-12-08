@@ -99,7 +99,7 @@ POST   /inventory/:id/adjust     (Admin/Employee)
 **Endpoints a crear:**
 ```
 POST   /pricing                  (Admin/Employee)
-GET    /pricing/product/:id      (Todos)
+GET    /pricing/product/:id      (Público)
 GET    /pricing/:id/history      (Admin/Employee)
 PATCH    /pricing/:id              (Admin/Employee)
 ```
@@ -413,14 +413,3 @@ PATCH    /users/:id/change-password (Self)
 4. **Documentar mientras desarrollas** - Es más difícil hacerlo después
 5. **Priorizar funcionalidad sobre perfección** - Es un MVP, iterar después
 6. **Configurar las migraciones desde el inicio** - Evita problemas en deployment
-
----
-
-## 📞 SOPORTE
-
-Si necesitas ayuda específica en alguna fase o tarea:
-1. Comparte el código del módulo/archivo específico
-2. Describe el problema o duda
-3. Indicar en qué fase estás trabajando
-
-¡Éxito con el desarrollo! 🚀
