@@ -13,7 +13,7 @@ export class CategoryService {
     @InjectRepository(Category)
     private readonly categoryRepository: Repository<Category>,
     private readonly auditLogService: AuditLogService,
-  ) {}
+  ) { }
 
   async create(createCategoryDto: CreateCategoryDto, userId: string): Promise<Category> {
     // Validate parent category exists if provided
@@ -66,8 +66,16 @@ export class CategoryService {
     parent_id?: string;
     is_active?: boolean;
     search?: string;
+    includeInactive?: boolean;
+    orderBy?: string;
+    orderDirection?: 'ASC' | 'DESC';
   }): Promise<Category[]> {
     const query = this.categoryRepository.createQueryBuilder('category');
+
+    // Filter inactive categories by default
+    if (!filters?.includeInactive) {
+      query.andWhere('category.is_active = :isActive', { isActive: true });
+    }
 
     if (filters?.parent_id !== undefined) {
       if (filters.parent_id === null || filters.parent_id === 'null') {
@@ -88,7 +96,14 @@ export class CategoryService {
       );
     }
 
-    query.orderBy('category.sort_order', 'ASC').addOrderBy('category.name', 'ASC');
+    // Flexible ordering
+    const orderBy = filters?.orderBy || 'sort_order';
+    const orderDirection = filters?.orderDirection || 'ASC';
+    query.orderBy(`category.${orderBy}`, orderDirection);
+
+    if (orderBy !== 'name') {
+      query.addOrderBy('category.name', 'ASC');
+    }
 
     return await query.getMany();
   }
@@ -224,32 +239,35 @@ export class CategoryService {
     }
   }
 
-  async remove(id: string, userId: string): Promise<void> {
-    const category = await this.findOne(id);
+  async remove(id: string, userId: string): Promise<Category> {
+    const category = await this.categoryRepository.findOne({
+      where: { id },
+      relations: ['products'],
+    });
+
+    if (!category) {
+      throw new NotFoundException(`Category with ID ${id} not found`);
+    }
 
     // Check if category has children
     const childrenCount = await this.categoryRepository.count({
-      where: { parent_id: id },
+      where: { parent_id: id, is_active: true },
     });
 
     if (childrenCount > 0) {
-      throw new BadRequestException('Cannot delete category with subcategories. Delete or reassign subcategories first.');
+      throw new BadRequestException('Cannot delete category with active subcategories. Delete or reassign subcategories first.');
     }
 
-    // Check if category has products (if products relation is loaded)
-    // This would require loading the products relation or a separate query
-    // For now, we'll let the database constraint handle it
+    // Check if category has active products
+    if (category.products && category.products.length > 0) {
+      const activeProducts = category.products.filter(p => p.status !== 'inactive');
+      if (activeProducts.length > 0) {
+        throw new BadRequestException(`Cannot delete category with ${activeProducts.length} active product(s). Remove or reassign products first.`);
+      }
+    }
 
-    // Create audit log before deletion
-    await this.auditLogService.createAuditLog({
-      tableName: 'categories',
-      recordId: id,
-      action: AuditAction.DELETE,
-      oldValues: category,
-      userId,
-    });
-
-    await this.categoryRepository.remove(category);
+    // Use soft delete instead of hard delete
+    return await this.softDelete(id, userId);
   }
 
   async softDelete(id: string, userId: string): Promise<Category> {
@@ -276,5 +294,35 @@ export class CategoryService {
 
   async getAuditHistory(id: string): Promise<any[]> {
     return await this.auditLogService.findByRecord('categories', id);
+  }
+
+  async restore(id: string, userId: string): Promise<Category> {
+    const category = await this.categoryRepository.findOne({ where: { id } });
+
+    if (!category) {
+      throw new NotFoundException(`Category with ID ${id} not found`);
+    }
+
+    if (category.is_active) {
+      throw new BadRequestException('Category is already active');
+    }
+
+    const oldValues = { ...category };
+    category.is_active = true;
+    category.updated_by = userId;
+
+    const updatedCategory = await this.categoryRepository.save(category);
+
+    // Create audit log
+    await this.auditLogService.createAuditLog({
+      tableName: 'categories',
+      recordId: id,
+      action: AuditAction.UPDATE,
+      oldValues,
+      newValues: { ...updatedCategory, _action: 'restore' },
+      userId,
+    });
+
+    return updatedCategory;
   }
 }

@@ -16,7 +16,7 @@ export class ProductService {
     @InjectRepository(Inventory)
     private readonly inventoryRepository: Repository<Inventory>,
     private readonly auditLogService: AuditLogService,
-  ) {}
+  ) { }
 
   async create(createProductDto: CreateProductDto, userId: string): Promise<Product> {
     // Check for duplicate SKU or barcode
@@ -59,8 +59,23 @@ export class ProductService {
     search?: string;
     limit?: number;
     offset?: number;
+    includeInactive?: boolean;
+    minPrice?: number;
+    maxPrice?: number;
+    categoryId?: string;
+    startDate?: string;
+    endDate?: string;
+    orderBy?: string;
+    orderDirection?: 'ASC' | 'DESC';
   }): Promise<{ data: Product[]; total: number }> {
-    const query = this.productRepository.createQueryBuilder('product');
+    const query = this.productRepository.createQueryBuilder('product')
+      .leftJoinAndSelect('product.categories', 'category')
+      .leftJoinAndSelect('product.pricing', 'pricing');
+
+    // Filter inactive products by default
+    if (!filters?.includeInactive) {
+      query.andWhere('product.status != :inactiveStatus', { inactiveStatus: 'inactive' });
+    }
 
     if (filters?.status) {
       query.andWhere('product.status = :status', { status: filters.status });
@@ -73,6 +88,30 @@ export class ProductService {
       );
     }
 
+    // Price range filtering
+    if (filters?.minPrice !== undefined || filters?.maxPrice !== undefined) {
+      query.andWhere('pricing.is_current = :isCurrent', { isCurrent: true });
+      if (filters.minPrice !== undefined) {
+        query.andWhere('pricing.sale_price >= :minPrice', { minPrice: filters.minPrice });
+      }
+      if (filters.maxPrice !== undefined) {
+        query.andWhere('pricing.sale_price <= :maxPrice', { maxPrice: filters.maxPrice });
+      }
+    }
+
+    // Category filtering
+    if (filters?.categoryId) {
+      query.andWhere('category.id = :categoryId', { categoryId: filters.categoryId });
+    }
+
+    // Date range filtering
+    if (filters?.startDate) {
+      query.andWhere('product.created_at >= :startDate', { startDate: filters.startDate });
+    }
+    if (filters?.endDate) {
+      query.andWhere('product.created_at <= :endDate', { endDate: filters.endDate });
+    }
+
     const total = await query.getCount();
 
     if (filters?.limit) {
@@ -83,7 +122,10 @@ export class ProductService {
       query.offset(filters.offset);
     }
 
-    query.orderBy('product.created_at', 'DESC');
+    // Flexible ordering
+    const orderBy = filters?.orderBy || 'created_at';
+    const orderDirection = filters?.orderDirection || 'DESC';
+    query.orderBy(`product.${orderBy}`, orderDirection);
 
     const data = await query.getMany();
 
@@ -161,7 +203,7 @@ export class ProductService {
     return updatedProduct;
   }
 
-  async remove(id: string, userId: string): Promise<void> {
+  async remove(id: string, userId: string): Promise<Product> {
     const product = await this.findOne(id);
 
     // Prevent deletion if inventory has stock > 0
@@ -170,16 +212,65 @@ export class ProductService {
       throw new BadRequestException('Cannot delete product with stock greater than 0');
     }
 
-    // Create audit log before deletion
+    const oldValues = { ...product };
+
+    // Soft delete: set status to inactive
+    product.status = 'inactive' as any;
+    product.updated_by = userId;
+    const updatedProduct = await this.productRepository.save(product);
+
+    // Create audit log
     await this.auditLogService.createAuditLog({
       tableName: 'products',
       recordId: id,
       action: AuditAction.DELETE,
-      oldValues: product,
+      oldValues,
+      newValues: updatedProduct,
       userId,
     });
 
-    await this.productRepository.remove(product);
+    return updatedProduct;
+  }
+
+  async restore(id: string, userId: string): Promise<Product> {
+    const product = await this.productRepository.findOne({ where: { id } });
+
+    if (!product) {
+      throw new NotFoundException(`Product with ID ${id} not found`);
+    }
+
+    if (product.status !== 'inactive') {
+      throw new BadRequestException('Product is not inactive');
+    }
+
+    const oldValues = { ...product };
+
+    // Restore: set status to active
+    product.status = 'active' as any;
+    product.updated_by = userId;
+    const updatedProduct = await this.productRepository.save(product);
+
+    // Create audit log
+    await this.auditLogService.createAuditLog({
+      tableName: 'products',
+      recordId: id,
+      action: AuditAction.UPDATE,
+      oldValues,
+      newValues: updatedProduct,
+      userId,
+    });
+
+    return updatedProduct;
+  }
+
+  async getLowStock(): Promise<Product[]> {
+    return await this.productRepository
+      .createQueryBuilder('product')
+      .leftJoinAndSelect('product.inventory', 'inventory')
+      .where('product.status != :status', { status: 'inactive' })
+      .andWhere('inventory.quantity <= inventory.min_stock')
+      .andWhere('inventory.quantity IS NOT NULL')
+      .getMany();
   }
 
   async getAuditHistory(id: string): Promise<any[]> {

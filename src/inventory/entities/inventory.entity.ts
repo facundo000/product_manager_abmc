@@ -31,6 +31,12 @@ export class Inventory {
   @Column({ length: 100, nullable: true })
   location: string;
 
+  @Column({ default: true })
+  is_active: boolean;
+
+  @CreateDateColumn()
+  created_at: Date;
+
   @UpdateDateColumn()
   last_updated: Date;
 

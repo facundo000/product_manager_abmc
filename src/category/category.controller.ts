@@ -1,20 +1,20 @@
-import { 
-  Controller, 
-  Get, 
-  Post, 
-  Body, 
-  Put, 
-  Param, 
-  Delete, 
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Put,
+  Param,
+  Delete,
   Query,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import { 
-  ApiTags, 
-  ApiOperation, 
-  ApiResponse, 
-  ApiParam, 
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiParam,
   ApiQuery,
   ApiBearerAuth,
 } from '@nestjs/swagger';
@@ -29,7 +29,7 @@ import { User } from '../user/entities/user.entity';
 @ApiTags('categories')
 @Controller('categories')
 export class CategoryController {
-  constructor(private readonly categoryService: CategoryService) {}
+  constructor(private readonly categoryService: CategoryService) { }
 
   @Post()
   @ApiOperation({ summary: 'Create a new category' })
@@ -52,24 +52,42 @@ export class CategoryController {
   @ApiQuery({ name: 'parent_id', required: false, description: 'Filter by parent category ID (use "null" for root categories)' })
   @ApiQuery({ name: 'is_active', required: false, type: Boolean, description: 'Filter by active status' })
   @ApiQuery({ name: 'search', required: false, description: 'Search in name and description' })
+  @ApiQuery({ name: 'includeInactive', required: false, type: Boolean, description: 'Include inactive categories' })
+  @ApiQuery({ name: 'orderBy', required: false, description: 'Order by field (name, sort_order, created_at)' })
+  @ApiQuery({ name: 'orderDirection', required: false, enum: ['ASC', 'DESC'], description: 'Order direction' })
   @ApiResponse({ status: 200, description: 'Returns list of categories' })
   async findAll(
     @Query('parent_id') parent_id?: string,
     @Query('is_active') is_active?: string,
     @Query('search') search?: string,
+    @Query('includeInactive') includeInactive?: string,
+    @Query('orderBy') orderBy?: string,
+    @Query('orderDirection') orderDirection?: 'ASC' | 'DESC',
   ) {
     const filters: any = {};
-    
+
     if (parent_id !== undefined) {
       filters.parent_id = parent_id;
     }
-    
+
     if (is_active !== undefined) {
       filters.is_active = is_active === 'true';
     }
-    
+
     if (search) {
       filters.search = search;
+    }
+
+    if (includeInactive !== undefined) {
+      filters.includeInactive = includeInactive === 'true';
+    }
+
+    if (orderBy) {
+      filters.orderBy = orderBy;
+    }
+
+    if (orderDirection) {
+      filters.orderDirection = orderDirection;
     }
 
     return await this.categoryService.findAll(filters);
@@ -127,32 +145,32 @@ export class CategoryController {
   }
 
   @Delete(':id')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Delete a category (hard delete)' })
+  @ApiOperation({ summary: 'Soft delete a category (set is_active to false)' })
   @ApiParam({ name: 'id', description: 'Category UUID' })
-  @ApiResponse({ status: 204, description: 'Category deleted successfully' })
-  @ApiResponse({ status: 400, description: 'Cannot delete category with subcategories' })
+  @ApiResponse({ status: 200, description: 'Category soft deleted successfully' })
+  @ApiResponse({ status: 400, description: 'Cannot delete category with active subcategories or products' })
   @ApiResponse({ status: 404, description: 'Category not found' })
   @ApiBearerAuth()
-  @Auth(ValidRoles.ADMIN)
+  @Auth(ValidRoles.ADMIN, ValidRoles.EMPLOYEE)
   async remove(
     @Param('id') id: string,
     @GetUser() user: User,
   ) {
-    await this.categoryService.remove(id, user.id);
+    return await this.categoryService.remove(id, user.id);
   }
 
-  @Put(':id/deactivate')
-  @ApiOperation({ summary: 'Soft delete a category (set is_active to false)' })
+  @Post(':id/restore')
+  @ApiOperation({ summary: 'Restore a soft deleted category' })
   @ApiParam({ name: 'id', description: 'Category UUID' })
-  @ApiResponse({ status: 200, description: 'Category deactivated successfully' })
+  @ApiResponse({ status: 200, description: 'Category restored successfully' })
+  @ApiResponse({ status: 400, description: 'Category is already active' })
   @ApiResponse({ status: 404, description: 'Category not found' })
   @ApiBearerAuth()
-  @Auth(ValidRoles.ADMIN)
-  async softDelete(
+  @Auth(ValidRoles.ADMIN, ValidRoles.EMPLOYEE)
+  async restore(
     @Param('id') id: string,
     @GetUser() user: User,
   ) {
-    return await this.categoryService.softDelete(id, user.id);
+    return await this.categoryService.restore(id, user.id);
   }
 }

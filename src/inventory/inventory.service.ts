@@ -20,7 +20,7 @@ export class InventoryService {
     @InjectRepository(InventoryMovement)
     private readonly movementRepo: Repository<InventoryMovement>,
     private readonly auditLogService: AuditLogService,
-  ) {}
+  ) { }
 
   async create(createInventoryDto: CreateInventoryDto): Promise<Inventory> {
     const { product_id } = createInventoryDto;
@@ -48,8 +48,34 @@ export class InventoryService {
     return saved;
   }
 
-  async findAll(): Promise<Inventory[]> {
-    return await this.inventoryRepo.find();
+  async findAll(filters?: {
+    includeInactive?: boolean;
+    search?: string;
+    orderBy?: string;
+    orderDirection?: 'ASC' | 'DESC';
+  }): Promise<Inventory[]> {
+    const query = this.inventoryRepo.createQueryBuilder('inventory')
+      .leftJoinAndSelect('inventory.product', 'product');
+
+    // Filter inactive by default
+    if (!filters?.includeInactive) {
+      query.andWhere('inventory.is_active = :isActive', { isActive: true });
+    }
+
+    // Search by product name or SKU
+    if (filters?.search) {
+      query.andWhere(
+        '(product.name ILIKE :search OR product.sku ILIKE :search)',
+        { search: `%${filters.search}%` },
+      );
+    }
+
+    // Flexible ordering
+    const orderBy = filters?.orderBy || 'created_at';
+    const orderDirection = filters?.orderDirection || 'DESC';
+    query.orderBy(`inventory.${orderBy}`, orderDirection);
+
+    return await query.getMany();
   }
 
   async findOne(id: string): Promise<Inventory> {
@@ -81,17 +107,52 @@ export class InventoryService {
     return saved;
   }
 
-  async remove(id: string): Promise<void> {
+  async remove(id: string, userId?: string): Promise<Inventory> {
     const inv = await this.findOne(id);
+
+    const oldValues = { ...inv };
+
+    // Soft delete: set is_active to false
+    inv.is_active = false;
+    const updatedInventory = await this.inventoryRepo.save(inv);
 
     await this.auditLogService.createAuditLog({
       tableName: 'inventory',
       recordId: id,
       action: AuditAction.DELETE,
-      oldValues: inv,
+      oldValues,
+      newValues: updatedInventory,
+      userId,
     });
 
-    await this.inventoryRepo.remove(inv);
+    return updatedInventory;
+  }
+
+  async restore(id: string, userId?: string): Promise<Inventory> {
+    const inv = await this.inventoryRepo.findOne({ where: { id } });
+
+    if (!inv) {
+      throw new NotFoundException(`Inventory with ID ${id} not found`);
+    }
+
+    if (inv.is_active) {
+      throw new BadRequestException('Inventory is already active');
+    }
+
+    const oldValues = { ...inv };
+    inv.is_active = true;
+    const updatedInventory = await this.inventoryRepo.save(inv);
+
+    await this.auditLogService.createAuditLog({
+      tableName: 'inventory',
+      recordId: id,
+      action: AuditAction.UPDATE,
+      oldValues,
+      newValues: updatedInventory,
+      userId,
+    });
+
+    return updatedInventory;
   }
 
   async adjust(id: string, dto: AdjustInventoryDto, userId?: string): Promise<Inventory> {
@@ -139,7 +200,9 @@ export class InventoryService {
   async getLowStock(): Promise<Inventory[]> {
     return await this.inventoryRepo
       .createQueryBuilder('inv')
-      .where('inv.quantity <= inv.min_stock')
+      .leftJoinAndSelect('inv.product', 'product')
+      .where('inv.is_active = :isActive', { isActive: true })
+      .andWhere('inv.quantity <= inv.min_stock')
       .getMany();
   }
 

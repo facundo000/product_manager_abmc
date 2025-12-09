@@ -1,9 +1,9 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, HttpCode, HttpStatus, Query } from '@nestjs/common';
 import { InventoryService } from './inventory.service';
 import { CreateInventoryDto } from './dto/create-inventory.dto';
 import { UpdateInventoryDto } from './dto/update-inventory.dto';
 import { AdjustInventoryDto } from './dto/adjust-inventory.dto';
-import { ApiBearerAuth, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Auth } from 'src/auth/decorators/auth.decorator';
 import { ValidRoles } from 'src/auth/interface/valid-roles';
 import { GetUser } from 'src/auth/decorators/get-user.decorator';
@@ -12,7 +12,7 @@ import { User } from '../user/entities/user.entity';
 @ApiTags('inventory')
 @Controller('inventory')
 export class InventoryController {
-  constructor(private readonly inventoryService: InventoryService) {}
+  constructor(private readonly inventoryService: InventoryService) { }
 
   @Post()
   @ApiOperation({ summary: 'Create inventory record for a product' })
@@ -31,11 +31,25 @@ export class InventoryController {
 
   @Get()
   @ApiOperation({ summary: 'Get all inventory records' })
+  @ApiQuery({ name: 'includeInactive', required: false, type: Boolean, description: 'Include inactive inventory' })
+  @ApiQuery({ name: 'search', required: false, description: 'Search by product name or SKU' })
+  @ApiQuery({ name: 'orderBy', required: false, description: 'Order by field' })
+  @ApiQuery({ name: 'orderDirection', required: false, enum: ['ASC', 'DESC'], description: 'Order direction' })
   @ApiResponse({ status: 200, description: 'Returns list of inventory' })
   @ApiBearerAuth()
   @Auth(ValidRoles.ADMIN, ValidRoles.EMPLOYEE, ValidRoles.VIEWER)
-  async findAll() {
-    return await this.inventoryService.findAll();
+  async findAll(
+    @Query('includeInactive') includeInactive?: string,
+    @Query('search') search?: string,
+    @Query('orderBy') orderBy?: string,
+    @Query('orderDirection') orderDirection?: 'ASC' | 'DESC',
+  ) {
+    return await this.inventoryService.findAll({
+      includeInactive: includeInactive === 'true',
+      search,
+      orderBy,
+      orderDirection,
+    });
   }
 
   @Get('low-stock')
@@ -111,16 +125,30 @@ export class InventoryController {
   }
 
   @Delete(':id')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Delete inventory record' })
+  @ApiOperation({ summary: 'Soft delete inventory record' })
   @ApiParam({ name: 'id', description: 'Inventory UUID' })
-  @ApiResponse({ status: 204, description: 'Inventory deleted successfully' })
+  @ApiResponse({ status: 200, description: 'Inventory soft deleted successfully' })
   @ApiBearerAuth()
-  @Auth(ValidRoles.ADMIN)
+  @Auth(ValidRoles.ADMIN, ValidRoles.EMPLOYEE)
   async remove(
     @Param('id') id: string,
     @GetUser() user: User,
   ) {
-    await this.inventoryService.remove(id);
+    return await this.inventoryService.remove(id, user.id);
+  }
+
+  @Post(':id/restore')
+  @ApiOperation({ summary: 'Restore a soft deleted inventory record' })
+  @ApiParam({ name: 'id', description: 'Inventory UUID' })
+  @ApiResponse({ status: 200, description: 'Inventory restored successfully' })
+  @ApiResponse({ status: 400, description: 'Inventory is already active' })
+  @ApiResponse({ status: 404, description: 'Inventory not found' })
+  @ApiBearerAuth()
+  @Auth(ValidRoles.ADMIN, ValidRoles.EMPLOYEE)
+  async restore(
+    @Param('id') id: string,
+    @GetUser() user: User,
+  ) {
+    return await this.inventoryService.restore(id, user.id);
   }
 }
