@@ -16,6 +16,127 @@ http://localhost:3000/docs
 
 ---
 
+## Authentication Endpoints
+
+### 1. Register User
+**POST** `/auth/register`
+
+Register a new user in the system.
+
+**Request Body:**
+```json
+{
+  "username": "johndoe",
+  "email": "john.doe@example.com",
+  "password": "SecureP@ssw0rd",
+  "full_name": "John Doe",
+  "role": "viewer" // optional: admin, employee, viewer
+}
+```
+
+**Response:** `201 Created`
+```json
+{
+  "user": {
+    "id": "uuid",
+    "username": "johndoe",
+    "email": "john.doe@example.com",
+    "role": "viewer",
+    "is_active": true,
+    ...
+  },
+  "token": "jwt-token-string"
+}
+```
+
+### 2. Login User
+**POST** `/auth/login`
+
+Authenticate a user and retrieve a JWT token.
+
+**Request Body:**
+```json
+{
+  "email": "john.doe@example.com",
+  "password": "SecureP@ssw0rd"
+}
+```
+
+**Response:** `201 Created` (Assuming standard NestJS behavior or 200 OK)
+```json
+{
+  "user": { ... },
+  "token": "jwt-token-string"
+}
+```
+
+### 3. Check Auth Status
+**GET** `/auth/check-status`
+
+Check if the current token is valid and refresh it.
+
+**Headers:**
+`Authorization: Bearer <token>`
+
+**Response:** `200 OK`
+```json
+{
+  "user": { ... },
+  "token": "new-jwt-token-string"
+}
+```
+
+---
+
+## User Endpoints
+
+### 1. Get All Users
+**GET** `/users`
+*(Admin only)*
+
+**Query Parameters:**
+- `includeInactive`: true/false
+- `search`: username, email, full name
+- `role`: filter by role
+
+**Response:** `200 OK`
+```json
+[
+  {
+    "id": "uuid",
+    "username": "...",
+    "email": "...",
+    "role": "..."
+  }
+]
+```
+
+### 2. Get User by ID
+**GET** `/users/:id`
+*(Admin or Own Account)*
+
+### 3. Update User
+**PATCH** `/users/:id`
+*(Admin or Own Account)*
+
+**Request Body:**
+```json
+{
+  "full_name": "New Name",
+  "email": "new.email@example.com"
+}
+```
+
+### 4. Delete User (Soft Delete)
+**DELETE** `/users/:id`
+*(Admin or Own Account)*
+
+### 5. Restore User
+**POST** `/users/:id/restore`
+*(Admin only)*
+
+---
+
 ## Products Endpoints
 
 ### 1. Create Product
@@ -37,28 +158,11 @@ Creates a new product with automatic audit logging.
   "size": "M",
   "seasonal": false,
   "supplier_code": "SUP-001",
-  "created_by": "user-uuid"
+  "created_by": "user-uuid" // Typically inferred from token in real usage, but DTO might allow it
 }
 ```
 
 **Response:** `201 Created`
-```json
-{
-  "id": "uuid",
-  "name": "Product Name",
-  "sku": "SKU-001",
-  "barcode": "1234567890123",
-  "status": "active",
-  "created_at": "2024-01-01T00:00:00.000Z",
-  ...
-}
-```
-
-**Errors:**
-- `409 Conflict` - SKU or barcode already exists
-- `400 Bad Request` - Validation error
-
----
 
 ### 2. Get All Products
 **GET** `/products`
@@ -70,147 +174,151 @@ Retrieves all products with optional filtering and pagination.
 - `search` (optional) - Search by name, SKU, or barcode
 - `limit` (optional) - Number of results (default: all)
 - `offset` (optional) - Pagination offset (default: 0)
-
-**Example:**
-```
-GET /products?status=active&search=shirt&limit=10&offset=0
-```
+- `minPrice`, `maxPrice` (optional)
+- `categoryId` (optional)
 
 **Response:** `200 OK`
 ```json
 {
-  "data": [
-    {
-      "id": "uuid",
-      "name": "Product Name",
-      "sku": "SKU-001",
-      "barcode": "1234567890123",
-      ...
-    }
-  ],
+  "data": [ ... ],
   "total": 100
 }
 ```
 
----
-
-### 3. Find Product by Barcode (Barcode Scanning)
+### 3. Find Product by Barcode
 **GET** `/products/barcode/:barcode`
-
-Retrieves a product by its barcode. This endpoint is optimized for barcode scanning operations.
-
-**Example:**
-```
-GET /products/barcode/1234567890123
-```
-
-**Response:** `200 OK`
-```json
-{
-  "id": "uuid",
-  "name": "Product Name",
-  "sku": "SKU-001",
-  "barcode": "1234567890123",
-  "status": "active",
-  ...
-}
-```
-
-**Errors:**
-- `404 Not Found` - Product with barcode not found
-
----
 
 ### 4. Find Product by SKU
 **GET** `/products/sku/:sku`
 
-Retrieves a product by its SKU.
-
-**Example:**
-```
-GET /products/sku/SKU-001
-```
-
-**Response:** `200 OK`
-
----
-
 ### 5. Get Product by ID
 **GET** `/products/:id`
 
-Retrieves a specific product by ID.
-
-**Response:** `200 OK`
-
-**Errors:**
-- `404 Not Found` - Product not found
-
----
-
-### 6. Get Product Audit History
-**GET** `/products/:id/audit-history`
-
-Retrieves the complete audit history for a product, showing all changes made.
-
-**Example:**
-```
-GET /products/uuid/audit-history
-```
-
-**Response:** `200 OK`
-```json
-[
-  {
-    "id": 1,
-    "table_name": "products",
-    "record_id": 123,
-    "action": "UPDATE",
-    "old_values": { "name": "Old Name" },
-    "new_values": { "name": "New Name" },
-    "user_id": "user-uuid",
-    "ip_address": "192.168.1.1",
-    "user_agent": "Mozilla/5.0...",
-    "created_at": "2024-01-01T00:00:00.000Z"
-  }
-]
-```
-
----
-
-### 7. Update Product
+### 6. Update Product
 **PATCH** `/products/:id`
-
-Updates an existing product with automatic audit logging.
 
 **Request Body:**
 ```json
 {
   "name": "Updated Name",
-  "status": "inactive",
-  "updated_by": "user-uuid"
+  "status": "inactive"
 }
 ```
 
-**Response:** `200 OK`
+### 7. Delete Product
+**DELETE** `/products/:id`
 
-**Errors:**
-- `404 Not Found` - Product not found
-- `409 Conflict` - SKU or barcode already exists
+### 8. Restore Product
+**POST** `/products/:id/restore`
 
 ---
 
-### 8. Delete Product
-**DELETE** `/products/:id?userId=user-uuid`
+## Category Endpoints
 
-Deletes a product with automatic audit logging.
+### 1. Create Category
+**POST** `/categories`
+
+**Request Body:**
+```json
+{
+  "name": "Category Name",
+  "description": "Optional description",
+  "parent_id": "uuid-of-parent", // Optional
+  "icon": "icon-name",
+  "sort_order": 1,
+  "is_active": true
+}
+```
+
+### 2. Get All Categories
+**GET** `/categories`
 
 **Query Parameters:**
-- `userId` (required) - ID of user performing the deletion
+- `parent_id`: Filter by parent (use "null" for roots)
+- `is_active`: true/false
+- `search`: Name/Description query
 
-**Response:** `204 No Content`
+### 3. Get Category Tree
+**GET** `/categories/tree`
+Returns a hierarchical structure of categories.
 
-**Errors:**
-- `404 Not Found` - Product not found
+### 4. Get Category Details
+**GET** `/categories/:id`
+
+### 5. Update Category
+**PUT** `/categories/:id`
+
+### 6. Delete Category
+**DELETE** `/categories/:id`
+
+---
+
+## Inventory Endpoints
+
+### 1. Create Inventory Record
+**POST** `/inventory`
+Initializes inventory for a product.
+
+**Request Body:**
+```json
+{
+  "product_id": "product-uuid",
+  "quantity": 100,
+  "min_stock": 10,
+  "max_stock": 1000,
+  "location": "Warehouse A"
+}
+```
+
+### 2. Get Inventory
+**GET** `/inventory`
+**Query:** `search`, `includeInactive`
+
+### 3. Get Low Stock
+**GET** `/inventory/low-stock`
+
+### 4. Adjust Inventory (Movements)
+**POST** `/inventory/:id/adjust`
+Creates an IN/OUT movement.
+
+**Request Body:**
+```json
+{
+  "amount": 5,
+  "type": "IN", // "IN", "OUT", "ADJUST"
+  "reason": "Stock arrived"
+}
+```
+
+### 5. Get Movement History
+**GET** `/inventory/:id/history`
+
+---
+
+## Pricing Endpoints
+
+### 1. Create Pricing
+**POST** `/pricing`
+Sets a price for a product.
+
+**Request Body:**
+```json
+{
+  "product_id": "product-uuid",
+  "selling_price": 150.00,
+  "cost_price": 100.00,
+  "currency": "USD"
+}
+```
+
+### 2. Get Current Price
+**GET** `/pricing/product/:productId`
+
+### 3. Get Price History
+**GET** `/pricing/product/:productId/history`
+
+### 4. Update Price
+**PATCH** `/pricing/:id`
 
 ---
 
@@ -219,150 +327,46 @@ Deletes a product with automatic audit logging.
 ### 1. Get All Audit Logs
 **GET** `/audit-log`
 
-Retrieves audit logs with optional filtering.
-
-**Query Parameters:**
-- `tableName` (optional) - Filter by table name
-- `recordId` (optional) - Filter by record ID
-- `limit` (optional) - Limit results (default: 100)
-
-**Example:**
-```
-GET /audit-log?tableName=products&limit=50
-```
-
-**Response:** `200 OK`
-```json
-[
-  {
-    "id": 1,
-    "table_name": "products",
-    "record_id": 123,
-    "action": "CREATE",
-    "new_values": { ... },
-    "user_id": "user-uuid",
-    "created_at": "2024-01-01T00:00:00.000Z"
-  }
-]
-```
-
----
-
 ### 2. Get Audit History for Record
 **GET** `/audit-log/record/:tableName/:recordId`
 
-Retrieves all audit logs for a specific record.
+---
 
-**Example:**
-```
-GET /audit-log/record/products/123
-```
+## Common Enums / Data Models
 
-**Response:** `200 OK`
+### User Roles
+- `admin`
+- `employee`
+- `viewer`
+
+### Inventory Movement Types
+- `IN`: Increase stock
+- `OUT`: Decrease stock
+- `ADJUST`: Set specific value / correction
+
+### Product Status
+- `active`
+- `inactive`
+- `discontinued`
 
 ---
 
-### 3. Get Audit Log by ID
-**GET** `/audit-log/:id`
+## Error Handling
+Standard HTTP Status Codes:
+- `200`: Success
+- `201`: Created
+- `400`: Bad Request (Validation failed)
+- `401`: Unauthorized (Invalid/Missing Token)
+- `403`: Forbidden (Insufficient Role)
+- `404`: Not Found
+- `409`: Conflict (Duplicates)
+- `500`: Internal Server Error
 
-Retrieves a specific audit log entry.
-
-**Response:** `200 OK`
-
----
-
-## Data Models
-
-### Product Status Enum
-- `active` - Product is active and available
-- `inactive` - Product is temporarily inactive
-- `discontinued` - Product is discontinued
-
-### Unit Type Enum
-- `unit` - Individual unit
-- `package` - Package of units
-- `box` - Box containing multiple packages
-
-### Audit Action Enum
-- `CREATE` - Record was created
-- `UPDATE` - Record was updated
-- `DELETE` - Record was deleted
-- `READ` - Record was read (optional logging)
-
----
-
-## Validation Rules
-
-### Product Creation/Update
-- `name`: Required, max 200 characters
-- `sku`: Required, max 100 characters, unique
-- `barcode`: Required, max 100 characters, unique
-- `status`: Optional, must be valid enum value
-- `unit_type`: Optional, must be valid enum value
-- `units_per_package`: Optional, must be >= 1
-- `color`: Optional, max 50 characters
-- `size`: Optional, max 50 characters
-- `seasonal`: Optional, boolean
-- `supplier_code`: Optional, max 100 characters
-- `created_by`: Required for creation
-- `updated_by`: Required for updates
-
----
-
-## Automatic Audit Logging
-
-All product operations (CREATE, UPDATE, DELETE) are automatically logged to the audit_log table with:
-- Table name and record ID
-- Action performed
-- Old and new values (for updates)
-- User ID
-- IP address
-- User agent
-- Timestamp
-
----
-
-## Error Responses
-
-All errors follow this format:
+Error Response Format:
 ```json
 {
   "statusCode": 400,
-  "message": "Error message",
+  "message": "Error details...",
   "error": "Bad Request"
 }
 ```
-
-Common status codes:
-- `400` - Bad Request (validation error)
-- `404` - Not Found
-- `409` - Conflict (duplicate SKU/barcode)
-- `500` - Internal Server Error
-
----
-
-## Example Usage
-
-### Barcode Scanning Flow
-1. Scan barcode: `1234567890123`
-2. Call: `GET /products/barcode/1234567890123`
-3. Display product information
-4. Update inventory or perform other operations
-
-### Product Management Flow
-1. Create product: `POST /products`
-2. View all products: `GET /products`
-3. Update product: `PATCH /products/:id`
-4. View audit history: `GET /products/:id/audit-history`
-5. Delete product: `DELETE /products/:id?userId=user-uuid`
-
----
-
-## Notes
-
-- All timestamps are in ISO 8601 format (UTC)
-- UUIDs are used for product IDs
-- Integer IDs are used for audit log entries
-- CORS is enabled for all origins
-- Global validation pipe is enabled
-- Swagger documentation includes all endpoints and schemas
