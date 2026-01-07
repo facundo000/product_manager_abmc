@@ -14,16 +14,34 @@ describe('ProductService', () => {
   let auditLogService: { createAuditLog: jest.Mock };
 
   beforeEach(async () => {
-    const repoMock = {
+    const productRepoMock = {
+      create: jest.fn(),
+      findAll: jest.fn(),
       findOne: jest.fn(),
+      findByBarcode: jest.fn(),
+      findBySku: jest.fn(),
+      update: jest.fn(),
+      save: jest.fn(),        
       remove: jest.fn(),
-    } as any;
+      restore: jest.fn(),
+      getLowStock: jest.fn(),
+      getAuditHistory: jest.fn()
+    };
+
+    const inventoryRepoMock = {
+      findOne: jest.fn(),
+      save: jest.fn(),
+      remove: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ProductService,
-        { provide: getRepositoryToken(Product), useValue: { ...repoMock } },
-        { provide: getRepositoryToken(Inventory), useValue: { ...repoMock } },
+        { provide: getRepositoryToken(Product), useValue: productRepoMock }, // ← SIN spread
+        { provide: getRepositoryToken(Inventory), useValue: inventoryRepoMock }, // ← SIN spread
         { provide: AuditLogService, useValue: { createAuditLog: jest.fn() } },
       ],
     }).compile();
@@ -39,21 +57,52 @@ describe('ProductService', () => {
   });
 
   describe('remove', () => {
-    it('throws BadRequest when product has stock > 0', async () => {
-      (service as any).findOne = jest.fn().mockResolvedValue({ id: 'p1' });
-      inventoryRepo.findOne.mockResolvedValue({ id: 'inv1', quantity: 2 } as any);
-      await expect(service.remove('p1', 'u1')).rejects.toBeInstanceOf(BadRequestException);
-      expect(productRepo.remove).not.toHaveBeenCalled();
-    });
-
-    it('allows deletion when no inventory or quantity 0 and logs audit', async () => {
-      (service as any).findOne = jest.fn().mockResolvedValue({ id: 'p1' });
-      inventoryRepo.findOne.mockResolvedValue({ id: 'inv1', quantity: 0 } as any);
-      productRepo.remove.mockResolvedValue(undefined as any);
-
-      await service.remove('p1', 'u1');
-      expect(auditLogService.createAuditLog).toHaveBeenCalled();
-      expect(productRepo.remove).toHaveBeenCalled();
-    });
+  it('throws BadRequest when product has stock > 0', async () => {
+    const mockProduct = { id: 'p1', status: 'active' };
+    
+    (service as any).findOne = jest.fn().mockResolvedValue(mockProduct);
+    inventoryRepo.findOne.mockResolvedValue({ id: 'inv1', quantity: 2 } as any);
+    
+    await expect(service.remove('p1', 'u1')).rejects.toThrow(BadRequestException);
+    expect(productRepo.save).not.toHaveBeenCalled();
   });
+
+  it('allows deletion when no inventory or quantity 0 and logs audit', async () => {
+    const mockProduct = {
+      id: 'p1',
+      status: 'active',
+      updated_by: null,
+      name: 'Test Product'
+    };
+
+    (service as any).findOne = jest.fn().mockResolvedValue(mockProduct);
+    inventoryRepo.findOne.mockResolvedValue({ id: 'inv1', quantity: 0 } as any);
+    
+    productRepo.save.mockResolvedValue({
+      ...mockProduct,
+      status: 'inactive',
+      updated_by: 'u1'
+    } as any);
+
+    const result = await service.remove('p1', 'u1');
+    
+    expect(productRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'inactive',
+        updated_by: 'u1'
+      })
+    );
+
+    expect(auditLogService.createAuditLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tableName: 'products',
+        recordId: 'p1',
+        action: 'DELETE',
+        userId: 'u1'
+      })
+    );
+
+    expect(result.status).toBe('inactive');
+  });
+});
 });
