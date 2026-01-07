@@ -2,16 +2,17 @@ import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Req } fro
 import { PricingService } from './pricing.service';
 import { CreatePricingDto } from './dto/create-pricing.dto';
 import { UpdatePricingDto } from './dto/update-pricing.dto';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Auth } from 'src/auth/decorators/auth.decorator';
 import { ValidRoles } from '../auth/interface/valid-roles';
 
 @ApiTags('pricing')
 @Controller('pricing')
 export class PricingController {
-  constructor(private readonly pricingService: PricingService) {}
+  constructor(private readonly pricingService: PricingService) { }
 
   @Post()
+  @ApiBearerAuth()
   @Auth(ValidRoles.ADMIN, ValidRoles.EMPLOYEE)
   create(@Body() createPricingDto: CreatePricingDto, @Req() req) {
     return this.pricingService.create(createPricingDto, req.user.userId);

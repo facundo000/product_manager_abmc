@@ -12,7 +12,7 @@ import {
   UsePipes,
   ValidationPipe
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiBearerAuth } from '@nestjs/swagger';
 import { ProductService } from './product.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
@@ -31,6 +31,7 @@ export class ProductController {
   @ApiOperation({ summary: 'Create a new product' })
   @ApiResponse({ status: 201, description: 'Product created successfully' })
   @ApiResponse({ status: 409, description: 'Product with SKU or barcode already exists' })
+  @ApiBearerAuth()
   @Auth(ValidRoles.ADMIN, ValidRoles.EMPLOYEE)
   async create(
     @Body() createProductDto: CreateProductDto,
