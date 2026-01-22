@@ -27,3 +27,14 @@ src/category/category.service.spec.ts
 src/user/user.controller.spec.ts
 src/auth/guards/user-role/user-role.guard.spec.ts
  (Also fixed a compilation error in the constructor)
+
+ 3. Roles
+  ```ts
+  EMPLOYEE = 'employee',
+  VIEWER = 'viewer',
+  ADMIN = 'admin'
+  ```
+
+4. Add protected route to Dashboard
+
+5. Add image user
