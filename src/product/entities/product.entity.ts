@@ -1,11 +1,13 @@
 import { Column, CreateDateColumn, Entity, Index, JoinColumn, JoinTable, ManyToMany, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 import { ProductStatus } from "../interfaces/product-status";
 import { UnitType } from "../interfaces/unit-type";
+import { SeasonalType } from "../interfaces/seasonal-type.enum";
 import { User } from "../../user/entities/user.entity";
 import { Category } from "../../category/entities/category.entity";
 import { Inventory } from "../../inventory/entities/inventory.entity";
 import { Pricing } from "../../pricing/entities/pricing.entity";
 import { ProductImage } from "../../product-image/entities/product-image.entity";
+import { Brand } from "../../brand/entities/brand.entity";
 
 @Entity('products')
 @Index(['barcode'])
@@ -40,17 +42,21 @@ export class Product {
     })
     unit_type: UnitType;
   
-    @Column({ type: 'int', nullable: true })
+@Column({ type: 'int', nullable: true })
     units_per_package: number;
   
-    @Column({ length: 50, nullable: true })
-    color: string;
+    @Column({ type: 'int', default: 0 })
+    quantity: number;
   
     @Column({ length: 50, nullable: true })
     size: string;
-  
-    @Column({ default: false })
-    seasonal: boolean;
+   
+    @Column({
+      type: 'enum',
+      enum: SeasonalType,
+      default: SeasonalType.NO,
+    })
+    seasonal: SeasonalType;
   
     @Column({ length: 100, nullable: true })
     supplier_code: string;
@@ -90,6 +96,14 @@ export class Product {
     @OneToMany(() => Pricing, (pricing) => pricing.product)
     pricing: Pricing[];
   
-    @OneToMany(() => ProductImage, (image) => image.product)
+@OneToMany(() => ProductImage, (image) => image.product)
     images: ProductImage[];
+   
+    @ManyToMany(() => Brand, (brand) => brand.products)
+    @JoinTable({
+      name: 'product_brands',
+      joinColumn: { name: 'product_id', referencedColumnName: 'id' },
+      inverseJoinColumn: { name: 'brand_id', referencedColumnName: 'id' },
+    })
+    brands: Brand[];
 }

@@ -1,57 +1,118 @@
 import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { Product } from './entities/product.entity';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { AuditAction } from '../audit-log/entities/audit-log.entity';
 import { Inventory } from '../inventory/entities/inventory.entity';
+import { Pricing } from '../pricing/entities/pricing.entity';
+import { Brand } from '../brand/entities/brand.entity';
 
 @Injectable()
 export class ProductService {
-  constructor(
+constructor(
     @InjectRepository(Product)
     private readonly productRepository: Repository<Product>,
     @InjectRepository(Inventory)
     private readonly inventoryRepository: Repository<Inventory>,
+    @InjectRepository(Pricing)
+    private readonly pricingRepository: Repository<Pricing>,
+    @InjectRepository(Brand)
+    private readonly brandRepository: Repository<Brand>,
     private readonly auditLogService: AuditLogService,
+    private readonly dataSource: DataSource,
   ) { }
 
-  async create(createProductDto: CreateProductDto, userId: string): Promise<Product> {
-    // Check for duplicate SKU or barcode
-    const existingProduct = await this.productRepository.findOne({
-      where: [
-        { sku: createProductDto.sku },
-        { barcode: createProductDto.barcode },
-      ],
-    });
+async create(createProductDto: CreateProductDto, userId: string): Promise<Product> {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
 
-    if (existingProduct) {
-      if (existingProduct.sku === createProductDto.sku) {
-        throw new ConflictException(`Product with SKU ${createProductDto.sku} already exists`);
+    try {
+      // Check for duplicate SKU or barcode
+      const existingProduct = await queryRunner.manager.findOne(Product, {
+        where: [
+          { sku: createProductDto.sku },
+          { barcode: createProductDto.barcode },
+        ],
+      });
+
+      if (existingProduct) {
+        if (existingProduct.sku === createProductDto.sku) {
+          throw new ConflictException(`Product with SKU ${createProductDto.sku} already exists`);
+        }
+        if (existingProduct.barcode === createProductDto.barcode) {
+          throw new ConflictException(`Product with barcode ${createProductDto.barcode} already exists`);
+        }
       }
-      if (existingProduct.barcode === createProductDto.barcode) {
-        throw new ConflictException(`Product with barcode ${createProductDto.barcode} already exists`);
+
+      // Extract pricing data from DTO
+      const { selling_price, cost_price, markup_percentage, brand_ids, ...productData } = createProductDto;
+
+      // Create product
+      const product = queryRunner.manager.create(Product, {
+        ...productData,
+        created_by: userId
+      });
+      const savedProduct = await queryRunner.manager.save(product);
+
+      // Handle brands if provided
+      if (brand_ids && brand_ids.length > 0) {
+        const brands = await queryRunner.manager.findByIds(Brand, brand_ids);
+        savedProduct.brands = brands;
+        await queryRunner.manager.save(savedProduct);
       }
+
+      // Create pricing
+      const pricing = queryRunner.manager.create(Pricing, {
+        product_id: savedProduct.id,
+        selling_price,
+        cost_price,
+        markup_percentage,
+        created_by: userId,
+        valid_from: new Date(),
+      });
+      await queryRunner.manager.save(pricing);
+
+      // Create inventory with initial quantity from product
+      const inventory = queryRunner.manager.create(Inventory, {
+        product_id: savedProduct.id,
+        quantity: productData.quantity || 0,
+        min_stock: 0,
+      });
+      await queryRunner.manager.save(inventory);
+
+      await queryRunner.commitTransaction();
+
+      // Create audit log
+      await this.auditLogService.createAuditLog({
+        tableName: 'products',
+        recordId: savedProduct.id,
+        action: AuditAction.CREATE,
+        newValues: savedProduct,
+        userId: userId,
+      });
+
+      // Return product with all relations
+      const productWithRelations = await this.productRepository.findOne({
+        where: { id: savedProduct.id },
+        relations: ['brands', 'pricing', 'inventory']
+      });
+
+      if (!productWithRelations) {
+        throw new NotFoundException('Product not found after creation');
+      }
+
+      return productWithRelations;
+
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
     }
-
-    const product = this.productRepository.create({
-      ...createProductDto,
-      created_by: userId
-    });
-    const savedProduct = await this.productRepository.save(product);
-
-    // Create audit log
-    await this.auditLogService.createAuditLog({
-      tableName: 'products',
-      recordId: savedProduct.id,
-      action: AuditAction.CREATE,
-      newValues: savedProduct,
-      userId: userId,
-    });
-
-    return savedProduct;
   }
 
   async findAll(filters?: {

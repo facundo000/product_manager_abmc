@@ -1,7 +1,9 @@
-import { IsString, IsNotEmpty, IsOptional, IsEnum, IsInt, IsBoolean, Min, MaxLength } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsEnum, IsInt, IsDecimal, Min, MaxLength, IsArray, IsUUID } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { ProductStatus } from '../interfaces/product-status';
 import { UnitType } from '../interfaces/unit-type';
+import { SeasonalType } from '../interfaces/seasonal-type.enum';
+import { Type } from 'class-transformer';
 
 export class CreateProductDto {
   @ApiProperty({ description: 'Product name', maxLength: 200 })
@@ -37,17 +39,16 @@ export class CreateProductDto {
   @IsOptional()
   unit_type?: UnitType;
 
-  @ApiPropertyOptional({ description: 'Units per package' })
+@ApiPropertyOptional({ description: 'Units per package' })
   @IsInt()
   @IsOptional()
   @Min(1)
   units_per_package?: number;
 
-  @ApiPropertyOptional({ description: 'Product color', maxLength: 50 })
-  @IsString()
+  @ApiPropertyOptional({ description: 'Product quantity', default: 0 })
+  @IsInt()
   @IsOptional()
-  @MaxLength(50)
-  color?: string;
+  quantity?: number;
 
   @ApiPropertyOptional({ description: 'Product size', maxLength: 50 })
   @IsString()
@@ -55,10 +56,34 @@ export class CreateProductDto {
   @MaxLength(50)
   size?: string;
 
-  @ApiPropertyOptional({ description: 'Is seasonal product', default: false })
-  @IsBoolean()
+  @ApiPropertyOptional({ enum: SeasonalType, default: SeasonalType.NO })
+  @IsEnum(SeasonalType)
   @IsOptional()
-  seasonal?: boolean;
+  seasonal?: SeasonalType;
+
+  @ApiPropertyOptional({ description: 'Brand IDs' })
+  @IsArray()
+  @IsUUID('4', { each: true })
+  @IsOptional()
+  brand_ids?: string[];
+
+  @ApiProperty({ description: 'Selling price' })
+  @IsDecimal()
+  @IsNotEmpty()
+  @Type(() => Number)
+  selling_price: number;
+
+  @ApiPropertyOptional({ description: 'Cost price' })
+  @IsDecimal()
+  @IsOptional()
+  @Type(() => Number)
+  cost_price?: number;
+
+  @ApiPropertyOptional({ description: 'Markup percentage' })
+  @IsDecimal()
+  @IsOptional()
+  @Type(() => Number)
+  markup_percentage?: number;
 
   @ApiPropertyOptional({ description: 'Supplier code', maxLength: 100 })
   @IsString()
