@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Get, UseGuards, Req } from '@nestjs/common';
+import { Controller, Post, Body, Get, UseGuards, Req, Headers, HttpCode, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
@@ -9,11 +9,15 @@ import { User } from 'src/user/entities/user.entity';
 import { OptionalAuthGuard } from './guards/user-role/optional-auth.guard';
 import { LoginDto } from './dto/login.dto';
 import { ValidRoles } from './interface/valid-roles';
+import { SessionService } from '../session/session.service';
 
 @ApiTags('Autenticación')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly sessionService: SessionService,
+  ) {}
 
   @Post('register')
   @ApiOperation({ 
@@ -70,8 +74,25 @@ export class AuthController {
   }
 
   @Post('login')
-  loginUser(@Body() loginDto: LoginDto) {
-    return this.authService.login(loginDto);
+  @HttpCode(HttpStatus.OK)
+  async loginUser(
+    @Body() loginDto: LoginDto,
+    @Req() req: any,
+  ) {
+    const ipAddress = req.ip || req.connection.remoteAddress || 'unknown';
+    const userAgent = req.get('user-agent') || 'unknown';
+    return await this.authService.login(loginDto, ipAddress, userAgent);
+  }
+
+  @Post('logout')
+  @HttpCode(HttpStatus.OK)
+  @Auth(ValidRoles.ADMIN, ValidRoles.EMPLOYEE, ValidRoles.VIEWER)
+  async logoutUser(
+    @Body() body: { sessionLogId: string },
+    @GetUser() user: User,
+  ) {
+    await this.authService.logout(body.sessionLogId, user.id);
+    return { message: 'Logout successful' };
   }
 
   @Get('check-status')

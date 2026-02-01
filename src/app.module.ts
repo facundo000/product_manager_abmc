@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
+import { EventEmitterModule } from '@nestjs/event-emitter';
+import { ScheduleModule } from '@nestjs/schedule';
 import { UserModule } from './user/user.module';
 import { ProductModule } from './product/product.module';
 import { CategoryModule } from './category/category.module';
@@ -10,6 +12,10 @@ import { AuditLogModule } from './audit-log/audit-log.module';
 import { ProductImageModule } from './product-image/product-image.module';
 import { AuthModule } from './auth/auth.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { InvoiceModule } from './invoice/invoice.module';
+import { PaymentModule } from './payment/payment.module';
+import { ListenersModule } from './listeners/listeners.module';
+import { SessionModule } from './session/session.module';
 
 @Module({
   imports: [
@@ -27,6 +33,8 @@ import { DashboardModule } from './dashboard/dashboard.module';
       autoLoadEntities: true,
       synchronize: true,
     }),
+    EventEmitterModule.forRoot(),
+    ScheduleModule.forRoot(),
     UserModule,
     ProductModule,
     CategoryModule,
@@ -36,6 +44,10 @@ import { DashboardModule } from './dashboard/dashboard.module';
     ProductImageModule,
     AuthModule,
     DashboardModule,
+    InvoiceModule,
+    PaymentModule,
+    ListenersModule,
+    SessionModule,
   ],
   controllers: [],
   providers: [],

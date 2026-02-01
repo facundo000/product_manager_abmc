@@ -2,6 +2,7 @@ import { Column, CreateDateColumn, Entity, OneToMany, PrimaryGeneratedColumn } f
 import { Product } from "../../product/entities/product.entity";
 import { Pricing } from "../../pricing/entities/pricing.entity";
 import { ValidRoles } from "../../auth/interface/valid-roles";
+import { SessionLog } from "../../session/entities/session-log.entity";
 
 @Entity('users')
 export class User {
@@ -45,4 +46,7 @@ export class User {
 
     @OneToMany(() => Pricing, (pricing) => pricing.created_by_user)
     pricing: Pricing[];
+
+    @OneToMany(() => SessionLog, (sessionLog) => sessionLog.user)
+    sessionLogs: SessionLog[];
 }

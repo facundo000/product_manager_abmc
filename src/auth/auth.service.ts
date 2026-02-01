@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, InternalServerErrorException, Unauthor
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import * as bcrypt from 'bcrypt';
 import { User } from '../user/entities/user.entity';
 import { RegisterDto } from './dto/register.dto';
@@ -16,6 +17,7 @@ export class AuthService {
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     private readonly jwtService: JwtService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async register(registerDto: RegisterDto) {
@@ -62,11 +64,11 @@ export class AuthService {
     }
   }
 
-  async login(loginDto: LoginDto){
+  async login(loginDto: LoginDto, ipAddress?: string, userAgent?: string){
       const {email, password } = loginDto;
       const user = await this.userRepository.findOne({
         where: {email},
-        select: {email: true, password_hash: true, id:true}
+        select: {email: true, password_hash: true, id:true, username: true, full_name: true, role: true, is_active: true}
       });
 
       if(!user){
@@ -77,6 +79,13 @@ export class AuthService {
         throw new UnauthorizedException('Invalid credentials - password')
       }
 
+      // Emit login event for session tracking
+      this.eventEmitter.emit('user.login', {
+        user,
+        ipAddress,
+        userAgent,
+      });
+
        return {
         user: user,
         token: this.getJwtToken({ id: user.id, username: user.username })
@@ -86,6 +95,14 @@ export class AuthService {
   private getJwtToken(payload: JwtPayload){
     const token = this.jwtService.sign(payload);
     return token;
+  }
+
+  async logout(sessionLogId: string, userId: string): Promise<void> {
+    // Emit logout event for session tracking
+    this.eventEmitter.emit('user.logout', {
+      sessionLogId,
+      userId,
+    });
   }
 
   async checkAuthStatus(user: User | null){
